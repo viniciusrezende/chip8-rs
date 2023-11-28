@@ -99,9 +99,6 @@ impl Chip8 {
         self.program_counter = self.get_opcode() & 0x0FFF;
     }
     fn op_3xkk(&mut self) {
-        if self.get_second_octet() == 0xF {
-            panic!("Register out of range");
-        }
         if self.registers[self.get_second_octet() as usize] == (self.get_opcode()&0x00FF) as u8 {
             self.inc_program_counter();
         }
@@ -126,10 +123,8 @@ impl Chip8 {
         self.inc_program_counter();
     }
     fn op_6xkk(&mut self) {
-        if self.get_second_octet() != 0xF {
-            self.registers[self.get_second_octet() as usize] = (self.get_opcode()&0x00FF) as u8;
-            self.inc_program_counter();
-        }
+        self.registers[self.get_second_octet() as usize] = (self.get_opcode()&0x00FF) as u8;
+        self.inc_program_counter();
     }
     fn op_7xkk(&mut self) {
         if self.get_second_octet() == 0xF {
@@ -164,7 +159,7 @@ impl Chip8 {
             self.registers[0xF] = 1;
             self.registers[self.get_second_octet() as usize] = self.registers[self.get_second_octet() as usize] - self.registers[self.get_third_octet() as usize];
         } else {
-            self.registers[0xF] = 0;;
+            self.registers[0xF] = 0;
             self.registers[self.get_second_octet() as usize] = self.registers[self.get_second_octet() as usize].overflowing_sub(self.registers[self.get_third_octet() as usize]).0;
         }
     }
@@ -178,7 +173,7 @@ impl Chip8 {
         } else {
             self.registers[0xF] = 0;
         }
-        self.registers[self.get_second_octet() as usize] = self.registers[self.get_third_octet() as usize] - self.registers[self.get_second_octet() as usize];
+        self.registers[self.get_second_octet() as usize] = (self.registers[self.get_third_octet() as usize]).overflowing_sub(self.registers[self.get_second_octet() as usize]).0;
     }
     fn op_8xye(&mut self) {
         self.registers[0xF] = self.registers[self.get_second_octet() as usize] & 0x80;
