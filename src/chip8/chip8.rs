@@ -81,6 +81,7 @@ impl Chip8 {
     fn op_00ee(&mut self) {
         self.program_counter = self.stack[self.stack_pointer as usize];
         self.stack_pointer -= 1;
+        self.inc_program_counter();
     }
     fn table_0(&mut self) {
         match self.get_opcode() & 0x00FF {
@@ -89,10 +90,10 @@ impl Chip8 {
             _ => { println!("Opcode not implemented: {:X}", self.get_opcode()) }
         }
     }
-    fn op_1nnnn(&mut self) {
+    fn op_1nnn(&mut self) {
         self.program_counter = self.get_opcode() & 0x0FFF;
     }
-    fn op_2nnnn(&mut self) {
+    fn op_2nnn(&mut self) {
         self.stack_pointer += 1;
         self.stack[self.stack_pointer as usize] = self.program_counter;
         self.program_counter = self.get_opcode() & 0x0FFF;
@@ -163,8 +164,8 @@ impl Chip8 {
             self.registers[0xF] = 1;
             self.registers[self.get_second_octet() as usize] = self.registers[self.get_second_octet() as usize] - self.registers[self.get_third_octet() as usize];
         } else {
-            self.registers[0xF] = 0;
-            self.registers[self.get_second_octet() as usize] = 0;
+            self.registers[0xF] = 0;;
+            self.registers[self.get_second_octet() as usize] = self.registers[self.get_second_octet() as usize].overflowing_sub(self.registers[self.get_third_octet() as usize]).0;
         }
     }
     fn op_8xy6(&mut self) {
@@ -203,14 +204,18 @@ impl Chip8 {
         self.inc_program_counter();
     }
     fn op_9xy0(&mut self) {
-        println!("Opcode not implemented: {:X}", self.get_opcode());
+        if self.registers[self.get_second_octet() as usize] != self.registers[self.get_third_octet() as usize] {
+            self.inc_program_counter();
+        }
+        self.inc_program_counter();
     }
     fn op_annn(&mut self) {
         self.index_register = self.get_opcode() & 0x0FFF;
         self.inc_program_counter();
     }
     fn op_bnnn(&mut self) {
-        self.program_counter = self.registers[self.get_second_octet() as usize ] as u16 + ( self.get_opcode() & 0x0FFF );
+        self.program_counter = self.registers[0] as u16 + ( self.get_opcode() & 0x0FFF );
+        self.inc_program_counter();
     }
     fn op_cxkk(&mut self) {
         println!("Opcode not implemented: {:X}", self.get_opcode());
@@ -309,10 +314,10 @@ impl Chip8 {
                 self.table_0();
             }
             0x1 => {
-                self.op_1nnnn();
+                self.op_1nnn();
             }
             0x2 => {
-                self.op_2nnnn();
+                self.op_2nnn();
             }
             0x3 => {
                 self.op_3xkk();

@@ -20,7 +20,7 @@ fn main() {
     let rom = fs::read(args[1].clone()).expect("Unable to read file");
     let mut chip_8 = Chip8::new();
     chip_8.load_rom(rom);
-    chip_8.load_font();
+    //chip_8.load_font();
 
     let mut texture:SfBox<Texture> = Texture::new().unwrap();
     let mut rw = RenderWindow::new(
