@@ -11,11 +11,13 @@ use sfml::{
 };
 pub struct Video {
     video_memory: Vec<Vec<bool>>,
+    should_render: bool,
 }
 impl Video {
     pub fn new() -> Video {
         Video {
-            video_memory: vec![vec![false; WIDTH as usize]; HEIGHT as usize]
+            video_memory: vec![vec![false; WIDTH as usize]; HEIGHT as usize],
+            should_render: false,
         }
     }
     pub fn update(&mut self, x:u32, y:u32) {
@@ -25,11 +27,16 @@ impl Video {
         } else {
             self.video_memory[y as usize][x as usize] = true;
         }
+        self.should_render = true;
     }
     pub fn clear(&mut self) {
         self.video_memory = vec![vec![false; WIDTH as usize]; HEIGHT as usize];
+        self.should_render = true;
     }
     pub fn render(&mut self, rw:&mut RenderWindow, texture: &mut SfBox<Texture>) {
+        if !self.should_render {
+            return;
+        }
         let mut image = Image::new(WIDTH as u32, HEIGHT as u32);
         unsafe {
             for y in 0..HEIGHT as u32 {
@@ -47,5 +54,7 @@ impl Video {
             spr.set_scale(Vector2f::new(SCALE as f32, SCALE as f32));
             rw.draw(&spr);
         }
+        rw.display();
+        self.should_render = false;
     }
 }

@@ -39,6 +39,5 @@ fn main() {
         }
         chip_8.call_operation(&mut rw);
         chip_8.video.render(&mut rw, &mut texture);
-        rw.display();
     }
 }

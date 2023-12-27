@@ -1,5 +1,5 @@
 use sfml::graphics::RenderWindow;
-
+use rand;
 use crate::chip8::video::Video;
 use crate::START_PROGRAM;
 use crate::HEIGHT;
@@ -14,7 +14,7 @@ pub struct Chip8 {
     program_counter:u16,
     stack:[u16;16],
     stack_pointer:u8,
-    pub video:Video
+    pub video:Video,
 }
 impl Chip8 {
     pub fn new() -> Chip8 {
@@ -27,7 +27,7 @@ impl Chip8 {
             program_counter:START_PROGRAM,
             stack:[0;16],
             stack_pointer:0,
-            video:Video::new()
+            video:Video::new(),
         }
     }
     pub fn load_font(&mut self) {
@@ -213,7 +213,9 @@ impl Chip8 {
         self.inc_program_counter();
     }
     fn op_cxkk(&mut self) {
-        println!("Opcode not implemented: {:X}", self.get_opcode());
+        let rand = rand::random::<u8>();
+        self.registers[self.get_second_octet() as usize] = rand & (self.get_opcode() & 0x00FF) as u8;
+        self.inc_program_counter();
     }
     fn op_dxyn(&mut self) {
         self.registers[0xF] = 0;
@@ -304,6 +306,7 @@ impl Chip8 {
     }
 
     pub fn call_operation(&mut self, _rw: &mut RenderWindow) {
+        //println!("Opcode: {:X}", self.get_opcode());
         match self.get_first_octet() {
             0x0 => {
                 self.table_0();
