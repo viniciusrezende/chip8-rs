@@ -34,6 +34,12 @@ fn main() {
         while let Some(ev) = rw.poll_event() {
             match ev {
                 Event::Closed => rw.close(),
+                Event::KeyPressed {code, ..} => {
+                    chip_8.key_pressed(code);
+                },
+                Event::KeyReleased {code, ..} => {
+                    chip_8.key_released(code);
+                },
                 _ => {}
             }
         }

@@ -1,4 +1,5 @@
 use sfml::graphics::RenderWindow;
+use sfml::window::Key;
 use rand;
 use crate::chip8::video::Video;
 use crate::START_PROGRAM;
@@ -15,6 +16,7 @@ pub struct Chip8 {
     stack:[u16;16],
     stack_pointer:u8,
     pub video:Video,
+    key_pressed:char,
 }
 impl Chip8 {
     pub fn new() -> Chip8 {
@@ -28,6 +30,7 @@ impl Chip8 {
             stack:[0;16],
             stack_pointer:0,
             video:Video::new(),
+            key_pressed:'\0',
         }
     }
     pub fn load_font(&mut self) {
@@ -53,9 +56,44 @@ impl Chip8 {
             self.ram[0x50 as usize + pos] = *e;
         }
     }
+    fn keycode_to_char( &self, _code: Key ) -> char {
+    /*
+         * 1 2 3 C
+         * 4 5 6 D
+         * 7 8 9 E
+         * A 0 B F
+         */
+        match _code {
+            Key::Num1 => '1',
+            Key::Num2 => '2',
+            Key::Num3 => '3',
+            Key::Num4 => 'C',
+            Key::Q => '4',
+            Key::W => '5',
+            Key::E => '6',
+            Key::R => 'D',
+            Key::A => '7',
+            Key::S => '8',
+            Key::D => '9',
+            Key::F => 'E',
+            Key::Z => 'A',
+            Key::X => '0',
+            Key::C => 'B',
+            Key::V => 'F',
+            _ => '\0',
+        }
+    }
     pub fn load_rom(&mut self, rom:Vec<u8>) {
         for i in 0..rom.len() {
             self.ram[START_PROGRAM as usize + i] = rom[i];
+        }
+    }
+    pub fn key_pressed(&mut self, _code: Key) {
+        self.key_pressed = self.keycode_to_char(_code);
+    }
+    pub fn key_released(&mut self, _code: Key) {
+        if self.key_pressed == self.keycode_to_char(_code) {
+            self.key_pressed = '\0';
         }
     }
     fn get_opcode(&self) -> u16 {
@@ -147,42 +185,44 @@ impl Chip8 {
     }
     fn op_8xy4(&mut self) {
         let sum = self.registers[self.get_second_octet() as usize] as u16 + self.registers[self.get_third_octet() as usize] as u16;
+        self.registers[self.get_second_octet() as usize] = sum as u8;
         if sum > 0xFF {
             self.registers[0xF] = 1;
         } else {
             self.registers[0xF] = 0;
         }
-        self.registers[self.get_second_octet() as usize] = sum as u8;
     }
     fn op_8xy5(&mut self) {
-        if self.registers[self.get_second_octet() as usize] > self.registers[self.get_third_octet() as usize] {
-            self.registers[0xF] = 1;
+        if self.registers[self.get_second_octet() as usize] >= self.registers[self.get_third_octet() as usize] {
             self.registers[self.get_second_octet() as usize] = self.registers[self.get_second_octet() as usize] - self.registers[self.get_third_octet() as usize];
+            self.registers[0xF] = 1;
         } else {
-            self.registers[0xF] = 0;
             self.registers[self.get_second_octet() as usize] = self.registers[self.get_second_octet() as usize].overflowing_sub(self.registers[self.get_third_octet() as usize]).0;
+            self.registers[0xF] = 0;
         }
     }
     fn op_8xy6(&mut self) {
-        self.registers[0xF] = self.registers[self.get_second_octet() as usize] & 0x1;
+        let shift = self.registers[self.get_second_octet() as usize] & 0x1;
         self.registers[self.get_second_octet() as usize] = self.registers[self.get_second_octet() as usize] >> 1;
+        self.registers[0xF] = shift;
     }
     fn op_8xy7(&mut self) {
+        self.registers[self.get_second_octet() as usize] = (self.registers[self.get_third_octet() as usize]).overflowing_sub(self.registers[self.get_second_octet() as usize]).0;
         if self.registers[self.get_third_octet() as usize] > self.registers[self.get_second_octet() as usize] {
             self.registers[0xF] = 1;
         } else {
             self.registers[0xF] = 0;
         }
-        self.registers[self.get_second_octet() as usize] = (self.registers[self.get_third_octet() as usize]).overflowing_sub(self.registers[self.get_second_octet() as usize]).0;
     }
     fn op_8xye(&mut self) {
-        self.registers[0xF] = self.registers[self.get_second_octet() as usize] & 0x80;
+        let shift = ( self.registers[self.get_second_octet() as usize] & 0x80 ) >> 7;
         self.registers[self.get_second_octet() as usize] = self.registers[self.get_second_octet() as usize] << 1;
+        self.registers[0xF] = shift;
     }
 
     fn table_8(&mut self) {
         if self.get_second_octet() == 0xF || self.get_third_octet() == 0xF {
-            panic!("Register out of range");
+            //panic!("Register out of range");
         }
         match self.get_fourth_octet() {
             0x0 => self.op_8xy0(),
@@ -254,41 +294,69 @@ impl Chip8 {
 
     fn op_fx07(&mut self) {
         self.registers[self.get_second_octet() as usize] = self.delay_register;
+        self.inc_program_counter();
     }
     fn op_fx0a(&mut self) {
-        let _key_pressed = false;
-        println!( "Keypress? TODO");
+        if self.key_pressed != '\0' {
+            self.registers[self.get_second_octet() as usize] = match self.key_pressed {
+                '1' => 0x1,
+                '2' => 0x2,
+                '3' => 0x3,
+                'C' => 0xC,
+                '4' => 0x4,
+                '5' => 0x5,
+                '6' => 0x6,
+                'D' => 0xD,
+                '7' => 0x7,
+                '8' => 0x8,
+                '9' => 0x9,
+                'E' => 0xE,
+                'A' => 0xA,
+                '0' => 0x0,
+                'B' => 0xB,
+                'F' => 0xF,
+                _ => 0x0,
+            };
+            self.inc_program_counter();
+        }
     }
     fn op_fx15(&mut self) {
         self.delay_register = self.registers[self.get_second_octet() as usize];
+        //self.inc_program_counter();
     }
     fn op_fx18(&mut self) {
         self.sound_register = self.registers[self.get_second_octet() as usize];
+        //self.inc_program_counter();
     }
     fn op_fx1e(&mut self) {
         self.index_register += self.registers[self.get_second_octet() as usize] as u16;
+        //self.inc_program_counter();
     }
     fn op_fx29(&mut self) {
         self.index_register = ( 0x50 + ( self.get_second_octet() * 5 ) ) as u16;
+        //self.inc_program_counter();
     }
     fn op_fx33(&mut self) {
         self.ram[self.index_register as usize] = self.registers[self.get_second_octet() as usize] / 100;
         self.ram[self.index_register as usize+1] = (self.registers[self.get_second_octet() as usize] / 10) % 10;
         self.ram[self.index_register as usize+2] = self.registers[self.get_second_octet() as usize] % 10;
+        //self.inc_program_counter();
     }
     fn op_fx55(&mut self) {
         for i in 0..self.get_second_octet()+1 {
             self.ram[(self.index_register+i as u16) as usize] = self.registers[i as usize];
         }
+        //self.inc_program_counter();
     }
     fn op_fx65(&mut self) {
         for i in 0..self.get_second_octet()+1 {
             self.registers[i as usize] = self.ram[(self.index_register+i as u16) as usize];
         }
+        //self.inc_program_counter();
     }
     fn table_f(&mut self) {
         if self.get_second_octet() == 0xF {
-            panic!("Register out of range");
+            //panic!("Register out of range");
         }
         match self.get_opcode() & 0x00FF {
             0x07 => self.op_fx07(),
@@ -306,7 +374,7 @@ impl Chip8 {
     }
 
     pub fn call_operation(&mut self, _rw: &mut RenderWindow) {
-        //println!("Opcode: {:X}", self.get_opcode());
+        println!("Opcode: {:X}", self.get_opcode());
         match self.get_first_octet() {
             0x0 => {
                 self.table_0();
@@ -359,9 +427,7 @@ impl Chip8 {
             _=> {
                 println!("Opcode not implemented: {:X}", self.get_opcode());
             }
-        }
-        
-        
+        }  
     }
     fn inc_program_counter(&mut self) {
         self.program_counter += 2;
