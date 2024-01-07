@@ -20,7 +20,9 @@ impl Video {
             should_render: false,
         }
     }
-    pub fn update(&mut self, x:u32, y:u32) {
+    pub fn update(&mut self, mut x:u32, mut y:u32) {
+        y=y%HEIGHT as u32;
+        x=x%WIDTH as u32;
         let pixel = self.video_memory[y as usize][x as usize];
         if pixel {
             self.video_memory[y as usize][x as usize] = false;
