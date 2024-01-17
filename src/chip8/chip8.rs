@@ -1,3 +1,4 @@
+use sfml::audio::Sound;
 use sfml::graphics::RenderWindow;
 use sfml::window::Key;
 use rand;
@@ -16,7 +17,7 @@ pub struct Chip8 {
     stack:[u16;16],
     stack_pointer:u8,
     pub video:Video,
-    key_pressed:char,
+    keys:[bool;16],
 }
 impl Chip8 {
     pub fn new() -> Chip8 {
@@ -30,7 +31,7 @@ impl Chip8 {
             stack:[0;16],
             stack_pointer:0,
             video:Video::new(),
-            key_pressed:'\0',
+            keys:[false;16],
         }
     }
     pub fn load_font(&mut self) {
@@ -56,31 +57,31 @@ impl Chip8 {
             self.ram[0x50 as usize + pos] = *e;
         }
     }
-    fn keycode_to_char( &self, _code: Key ) -> char {
-    /*
+    fn keycode_to_index( &self, _code: Key ) -> usize {
+        /*
          * 1 2 3 C
          * 4 5 6 D
          * 7 8 9 E
          * A 0 B F
          */
         match _code {
-            Key::Num1 => '1',
-            Key::Num2 => '2',
-            Key::Num3 => '3',
-            Key::Num4 => 'C',
-            Key::Q => '4',
-            Key::W => '5',
-            Key::E => '6',
-            Key::R => 'D',
-            Key::A => '7',
-            Key::S => '8',
-            Key::D => '9',
-            Key::F => 'E',
-            Key::Z => 'A',
-            Key::X => '0',
-            Key::C => 'B',
-            Key::V => 'F',
-            _ => '\0',
+            Key::Num1 => 0x1,
+            Key::Num2 => 0x2,
+            Key::Num3 => 0x3,
+            Key::Num4 => 0xC,
+            Key::Q => 0x4,
+            Key::W => 0x5,
+            Key::E => 0x6,
+            Key::R => 0xD,
+            Key::A => 0x7,
+            Key::S => 0x8,
+            Key::D => 0x9,
+            Key::F => 0xE,
+            Key::Z => 0xA,
+            Key::X => 0x0,
+            Key::C => 0xB,
+            Key::V => 0xF,
+            _ => 0xFF,
         }
     }
     pub fn load_rom(&mut self, rom:Vec<u8>) {
@@ -89,12 +90,16 @@ impl Chip8 {
         }
     }
     pub fn key_pressed(&mut self, _code: Key) {
-        self.key_pressed = self.keycode_to_char(_code);
+        if self.keycode_to_index(_code) == 0xFF {
+            return;
+        }
+        self.keys[self.keycode_to_index(_code)]=true;
     }
     pub fn key_released(&mut self, _code: Key) {
-        if self.key_pressed == self.keycode_to_char(_code) {
-            self.key_pressed = '\0';
+        if self.keycode_to_index(_code) == 0xFF {
+            return;
         }
+        self.keys[self.keycode_to_index(_code)]=false;
     }
     fn get_opcode(&self) -> u16 {
         ((self.ram[self.program_counter as usize] as u16) << 8) | self.ram[self.program_counter as usize+1] as u16
@@ -143,9 +148,6 @@ impl Chip8 {
         self.inc_program_counter();
     }
     fn op_4xkk(&mut self) {
-        if self.get_second_octet() == 0xF {
-            panic!("Register out of range");
-        }
         if self.registers[self.get_second_octet() as usize] != (self.get_opcode()&0x00FF) as u8 {
             self.inc_program_counter();
         }
@@ -273,11 +275,15 @@ impl Chip8 {
         self.inc_program_counter();
     }
 
-    fn op_exa1(&mut self) {
-        println!("Opcode not implemented: {:X}", self.get_opcode());
-    }
     fn op_ex9e(&mut self) {
-        println!("Opcode not implemented: {:X}", self.get_opcode());
+        if self.keys[ self.registers[self.get_second_octet() as usize] as usize ] == true {
+            self.inc_program_counter();
+        }
+    }
+    fn op_exa1(&mut self) {
+        if self.keys[ self.registers[self.get_second_octet() as usize] as usize ] == false {
+            self.inc_program_counter();
+        }
     }
     fn table_e(&mut self) {
         match self.get_opcode() & 0x00FF {
@@ -297,27 +303,11 @@ impl Chip8 {
         self.inc_program_counter();
     }
     fn op_fx0a(&mut self) {
-        if self.key_pressed != '\0' {
-            self.registers[self.get_second_octet() as usize] = match self.key_pressed {
-                '1' => 0x1,
-                '2' => 0x2,
-                '3' => 0x3,
-                'C' => 0xC,
-                '4' => 0x4,
-                '5' => 0x5,
-                '6' => 0x6,
-                'D' => 0xD,
-                '7' => 0x7,
-                '8' => 0x8,
-                '9' => 0x9,
-                'E' => 0xE,
-                'A' => 0xA,
-                '0' => 0x0,
-                'B' => 0xB,
-                'F' => 0xF,
-                _ => 0x0,
-            };
-            self.inc_program_counter();
+        for i in 0..self.keys.len() {
+            if self.keys[i] {
+                self.registers[self.get_second_octet() as usize] = i as u8;
+                self.inc_program_counter();
+            }
         }
     }
     fn op_fx15(&mut self) {
@@ -370,11 +360,13 @@ impl Chip8 {
             0x65 => self.op_fx65(),
             _ => { println!("Opcode not implemented: {:X}", self.get_opcode()) }
         }
-        self.inc_program_counter();
+        // halt execution until key is pressed
+        if ( self.get_opcode() & 0x00FF ) != 0x0A {
+            self.inc_program_counter();
+        }
     }
 
     pub fn call_operation(&mut self, _rw: &mut RenderWindow) {
-        println!("Opcode: {:X}", self.get_opcode());
         match self.get_first_octet() {
             0x0 => {
                 self.table_0();
@@ -431,5 +423,19 @@ impl Chip8 {
     }
     fn inc_program_counter(&mut self) {
         self.program_counter += 2;
+    }
+
+    pub fn update_timers(&mut self, _sound: &mut Sound) {
+        if self.delay_register > 0 {
+            self.delay_register -= 1;
+        }
+        if self.sound_register > 0 {
+            if ( _sound.status() != sfml::audio::SoundStatus::PLAYING ) {
+                _sound.play();
+            }
+            self.sound_register -= 1;
+        } else {
+            _sound.stop();
+        }
     }
 }
