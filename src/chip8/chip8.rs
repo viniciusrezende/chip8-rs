@@ -300,7 +300,6 @@ impl Chip8 {
 
     fn op_fx07(&mut self) {
         self.registers[self.get_second_octet() as usize] = self.delay_register;
-        self.inc_program_counter();
     }
     fn op_fx0a(&mut self) {
         for i in 0..self.keys.len() {
@@ -312,42 +311,32 @@ impl Chip8 {
     }
     fn op_fx15(&mut self) {
         self.delay_register = self.registers[self.get_second_octet() as usize];
-        //self.inc_program_counter();
     }
     fn op_fx18(&mut self) {
         self.sound_register = self.registers[self.get_second_octet() as usize];
-        //self.inc_program_counter();
     }
     fn op_fx1e(&mut self) {
         self.index_register += self.registers[self.get_second_octet() as usize] as u16;
-        //self.inc_program_counter();
     }
     fn op_fx29(&mut self) {
         self.index_register = ( 0x50 + ( self.get_second_octet() * 5 ) ) as u16;
-        //self.inc_program_counter();
     }
     fn op_fx33(&mut self) {
         self.ram[self.index_register as usize] = self.registers[self.get_second_octet() as usize] / 100;
         self.ram[self.index_register as usize+1] = (self.registers[self.get_second_octet() as usize] / 10) % 10;
         self.ram[self.index_register as usize+2] = self.registers[self.get_second_octet() as usize] % 10;
-        //self.inc_program_counter();
     }
     fn op_fx55(&mut self) {
         for i in 0..self.get_second_octet()+1 {
             self.ram[(self.index_register+i as u16) as usize] = self.registers[i as usize];
         }
-        //self.inc_program_counter();
     }
     fn op_fx65(&mut self) {
         for i in 0..self.get_second_octet()+1 {
             self.registers[i as usize] = self.ram[(self.index_register+i as u16) as usize];
         }
-        //self.inc_program_counter();
     }
     fn table_f(&mut self) {
-        if self.get_second_octet() == 0xF {
-            //panic!("Register out of range");
-        }
         match self.get_opcode() & 0x00FF {
             0x07 => self.op_fx07(),
             0x0A => self.op_fx0a(),
@@ -430,7 +419,7 @@ impl Chip8 {
             self.delay_register -= 1;
         }
         if self.sound_register > 0 {
-            if ( _sound.status() != sfml::audio::SoundStatus::PLAYING ) {
+            if _sound.status() != sfml::audio::SoundStatus::PLAYING {
                 _sound.play();
             }
             self.sound_register -= 1;

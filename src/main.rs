@@ -67,15 +67,3 @@ fn main() {
         }
     }
 }
-
-fn sine_wave(freq: f32, sample_rate: u32, duration: f32) -> Vec<i16> {
-    let mut samples = Vec::new();
-    let max_amplitude = i16::MAX as f32;
-    let num_samples = (sample_rate as f32 * duration) as usize;
-    for i in 0..num_samples {
-        let t = i as f32 / sample_rate as f32;
-        let amplitude = (t * freq * 2.0 * std::f32::consts::PI).sin() * max_amplitude;
-        samples.push(amplitude as i16);
-    }
-    samples
-}
